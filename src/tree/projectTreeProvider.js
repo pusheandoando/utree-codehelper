@@ -54,8 +54,25 @@ class ProjectTreeProvider {
 		checkedItems.forEach(([item, newState]) => {
 			const isExcluded = newState === vscode.TreeItemCheckboxState.Unchecked;
 			extensionState.setExcluded(item.relativePath, isExcluded);
+			// When a directory is re-included, do not cascade to children.
+			// When a directory is excluded, cascade exclusion to all descendants.
+			if (isExcluded && item.isDirectory) {
+				this.excludeAllDescendants(extensionState, item.relativePath);
+			}
 		});
 		saveExclusions(this.workspaceRootPath, extensionState.getExcludedPaths());
+		this.refresh();
+	}
+
+	excludeAllDescendants(extensionState, parentRelativePath) {
+		const { collectAllEntries } = require('./projectFileScanner');
+		const allEntries = collectAllEntries(this.workspaceRootPath);
+		const prefix = parentRelativePath + path.sep;
+		for (const entry of allEntries) {
+			if (entry.startsWith(prefix)) {
+				extensionState.setExcluded(entry, true);
+			}
+		}
 	}
 }
 
