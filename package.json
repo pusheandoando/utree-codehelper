@@ -1,0 +1,76 @@
+{
+  "name": "utree-codehelper",
+  "displayName": "utree-codehelper",
+  "description": "Visual Studio Code extension that safely applies AI-proposed codebase changes while keeping developers in control through step-by-step review and approval, striking the right balance between AI assistance and human oversight instead of blind vibe coding.",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "utreeCodehelperActivityBar",
+          "title": "utree CodeHelper",
+          "icon": "assets/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "utreeCodehelperActivityBar": [
+        {
+          "type": "tree",
+          "id": "utreeCodehelperTreeSelection",
+          "name": "Files"
+        },
+        {
+          "type": "webview",
+          "id": "utreeCodehelperFileSearch",
+          "name": "Search Files"
+        },
+        {
+          "type": "webview",
+          "id": "utreeCodehelperControlPanel",
+          "name": "Control Panel"
+        },
+        {
+          "type": "webview",
+          "id": "utreeCodehelperPreviousChanges",
+          "name": "Previous Changes"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "utree-codehelper.newChange",
+        "title": "utree CodeHelper: New Change"
+      },
+      {
+        "command": "utree-codehelper.reloadPrompt",
+        "title": "utree CodeHelper: Reload Prompt"
+      },
+      {
+        "command": "utree-codehelper.applyChanges",
+        "title": "utree CodeHelper: Apply Changes"
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.125.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "eslint": "^9.39.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
