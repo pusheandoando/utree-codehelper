@@ -5,6 +5,8 @@ const { SHARED_STYLES } = require('./webviewStyles');
 
 
 
+const PAGE_SIZE = 10;
+
 function buildFileSearchHtml() {
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -61,18 +63,24 @@ function buildFileSearchHtml() {
 			padding: 1px 5px;
 			border-radius: var(--uc-radius);
 		}
-		.uc-search-item-badge.included {
-			color: var(--uc-success);
-			border: 1px solid var(--uc-success);
-		}
-		.uc-search-item-badge.excluded {
+		.uc-search-item-badge.selected {
 			color: var(--uc-danger);
 			border: 1px solid var(--uc-danger);
+		}
+		.uc-search-item-badge.not-selected {
+			color: var(--uc-text-secondary);
+			border: 1px solid var(--uc-border);
 		}
 		.uc-search-empty {
 			font-size: 12px;
 			color: var(--uc-text-secondary);
 			padding: 4px 0;
+		}
+		.uc-load-more {
+			font-size: 11px;
+			color: var(--uc-text-secondary);
+			text-align: center;
+			padding: 6px 0 2px;
 		}
 	</style>
 </head>
@@ -80,70 +88,103 @@ function buildFileSearchHtml() {
 	<div class="uc-search-panel">
 		<input type="text" id="uc-file-search" placeholder="Search files to include/exclude..." autocomplete="off" />
 		<div class="uc-search-results" id="uc-search-results"></div>
+		<div class="uc-load-more" id="uc-load-more" style="display:none;"></div>
 	</div>
 	<script>
 		const vscodeApi = acquireVsCodeApi();
 		const fileSearchField = document.getElementById('uc-file-search');
 		const searchResultsEl = document.getElementById('uc-search-results');
+		const loadMoreEl = document.getElementById('uc-load-more');
+		const PAGE_SIZE = ${PAGE_SIZE};
 
 		let allEntries = [];
+		let currentMatches = [];
+		let visibleCount = 0;
 
 		fileSearchField.addEventListener('input', () => {
-			renderResults(fileSearchField.value.trim().toLowerCase());
+			const term = fileSearchField.value.trim().toLowerCase();
+			currentMatches = term
+				? allEntries.filter((entry) => entry.relativePath.toLowerCase().includes(term))
+				: [];
+			visibleCount = 0;
+			searchResultsEl.innerHTML = '';
+			renderNextPage();
 		});
 
-		function renderResults(term) {
-			searchResultsEl.innerHTML = '';
-
-			if (!term) {
+		function renderNextPage() {
+			if (currentMatches.length === 0 && visibleCount === 0) {
+				const term = fileSearchField.value.trim();
+				if (term) {
+					const empty = document.createElement('div');
+					empty.className = 'uc-search-empty';
+					empty.textContent = 'No matches found.';
+					searchResultsEl.appendChild(empty);
+				}
+				loadMoreEl.style.display = 'none';
 				return;
 			}
 
-			const matched = allEntries.filter((entry) =>
-				entry.relativePath.toLowerCase().includes(term)
-			);
-
-			if (matched.length === 0) {
-				const empty = document.createElement('div');
-				empty.className = 'uc-search-empty';
-				empty.textContent = 'No matches found.';
-				searchResultsEl.appendChild(empty);
-				return;
-			}
-
-			matched.forEach((entry) => {
-				const item = document.createElement('div');
-				item.className = 'uc-search-item';
-
-				const pathEl = document.createElement('span');
-				pathEl.className = 'uc-search-item-path';
-				pathEl.textContent = entry.relativePath;
-				pathEl.title = entry.relativePath;
-
-				const badge = document.createElement('span');
-				badge.className = 'uc-search-item-badge ' + (entry.excluded ? 'excluded' : 'included');
-				badge.textContent = entry.excluded ? 'excluded' : 'included';
-
-				item.appendChild(pathEl);
-				item.appendChild(badge);
-
-				item.addEventListener('click', () => {
-					vscodeApi.postMessage({
-						type: 'toggleFileExclusion',
-						relativePath: entry.relativePath,
-						currentlyExcluded: entry.excluded,
-					});
-				});
-
-				searchResultsEl.appendChild(item);
+			const slice = currentMatches.slice(visibleCount, visibleCount + PAGE_SIZE);
+			slice.forEach((entry) => {
+				searchResultsEl.appendChild(buildResultItem(entry));
 			});
+			visibleCount += slice.length;
+
+			const remaining = currentMatches.length - visibleCount;
+			if (remaining > 0) {
+				loadMoreEl.style.display = 'block';
+				loadMoreEl.textContent = remaining + ' more - scroll down to load';
+			} else {
+				loadMoreEl.style.display = 'none';
+			}
 		}
+
+		function buildResultItem(entry) {
+			const item = document.createElement('div');
+			item.className = 'uc-search-item';
+
+			const pathEl = document.createElement('span');
+			pathEl.className = 'uc-search-item-path';
+			pathEl.textContent = entry.relativePath;
+			pathEl.title = entry.relativePath;
+
+			const badge = document.createElement('span');
+			badge.className = 'uc-search-item-badge ' + (entry.excluded ? 'selected' : 'not-selected');
+			badge.textContent = entry.excluded ? 'excluded' : 'included';
+
+			item.appendChild(pathEl);
+			item.appendChild(badge);
+
+			item.addEventListener('click', () => {
+				vscodeApi.postMessage({
+					type: 'toggleFileSelection',
+					relativePath: entry.relativePath,
+					currentlySelected: entry.excluded,
+				});
+			});
+
+			return item;
+		}
+
+		// Infinite scroll: observe the load-more sentinel element.
+		const observer = new IntersectionObserver((entries) => {
+			if (entries[0].isIntersecting && visibleCount < currentMatches.length) {
+				renderNextPage();
+			}
+		}, { threshold: 0.1 });
+		observer.observe(loadMoreEl);
 
 		window.addEventListener('message', (event) => {
 			const message = event.data;
 			if (message.type === 'fileEntries') {
 				allEntries = message.entries;
-				renderResults(fileSearchField.value.trim().toLowerCase());
+				const term = fileSearchField.value.trim().toLowerCase();
+				currentMatches = term
+					? allEntries.filter((entry) => entry.relativePath.toLowerCase().includes(term))
+					: [];
+				visibleCount = 0;
+				searchResultsEl.innerHTML = '';
+				renderNextPage();
 			}
 		});
 

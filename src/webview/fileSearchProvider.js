@@ -37,6 +37,14 @@ class FileSearchProvider {
 					this.onExclusionChanged();
 				}
 			}
+			if (message.type === 'toggleFileSelection') {
+				const extensionState = ExtensionState.getInstance();
+				extensionState.setExcluded(message.relativePath, !message.currentlySelected);
+				this.sendFileEntries();
+				if (this.onExclusionChanged) {
+					this.onExclusionChanged();
+				}
+			}
 		});
 	}
 

@@ -154,24 +154,45 @@ class UtreeManager {
 		});
 	}
 
-	runDump(projectRootPath, excludedNames) {
-		const args = [projectRootPath, '--dump'];
+	spawnAndCollectInDir(args, cwd) {
+		return new Promise((resolve, reject) => {
+			const chunks = [];
+			const child = spawn(this.binaryPath, args, { cwd });
 
-		if (excludedNames.length > 0) {
-			args.push('-e', excludedNames.join(','));
-		}
+			child.stdout.on('data', (chunk) => { chunks.push(chunk); });
+			child.stderr.on('data', (chunk) => { chunks.push(chunk); });
 
-		return this.spawnAndCollect(args);
+			child.on('error', reject);
+
+			child.on('close', (code) => {
+				const output = Buffer.concat(chunks).toString('utf8');
+				if (code !== 0) {
+					reject(new Error(output || `utree exited with code ${code}`));
+					return;
+				}
+				resolve(output);
+			});
+		});
 	}
 
-	runTree(projectRootPath, excludedNames) {
-		const args = [projectRootPath];
+	runDump(projectRootPath, excludedNames) {
+		const args = ['.', '--dump'];
 
 		if (excludedNames && excludedNames.length > 0) {
 			args.push('-e', excludedNames.join(','));
 		}
 
-		return this.spawnAndCollect(args);
+		return this.spawnAndCollectInDir(args, projectRootPath);
+	}
+
+	runTree(projectRootPath, excludedNames) {
+		const args = ['.'];
+
+		if (excludedNames && excludedNames.length > 0) {
+			args.push('-e', excludedNames.join(','));
+		}
+
+		return this.spawnAndCollectInDir(args, projectRootPath);
 	}
 }
 

@@ -28,6 +28,26 @@ class ExtensionState {
 		return instance;
 	}
 
+	isSelected(relativePath) {
+		return this.excludedPaths.has(relativePath);
+	}
+
+	setSelected(relativePath, selected) {
+		if (selected) {
+			this.excludedPaths.add(relativePath);
+		} else {
+			this.excludedPaths.delete(relativePath);
+		}
+	}
+
+	getSelectedPaths() {
+		return Array.from(this.excludedPaths);
+	}
+
+	setSelectedPaths(relativePaths) {
+		this.excludedPaths = new Set(relativePaths);
+	}
+
 	isExcluded(relativePath) {
 		return this.excludedPaths.has(relativePath);
 	}

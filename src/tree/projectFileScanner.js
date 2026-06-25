@@ -2,8 +2,6 @@
 const fs = require('fs');
 const path = require('path');
 
-const IGNORED_DIRS = new Set(['.git', 'node_modules', '.vscode', 'dist', 'out', '.vscode-test']);
-
 
 
 
@@ -37,9 +35,6 @@ function collectAllEntries(rootPath) {
 		}
 
 		for (const entry of entries) {
-			if (IGNORED_DIRS.has(entry.name)) {
-				continue;
-			}
 			const absolutePath = path.join(absoluteDir, entry.name);
 			const relativePath = path.relative(rootPath, absolutePath);
 			results.push(relativePath);

@@ -7,42 +7,19 @@ const { buildMasterPrompt } = require('./promptTemplate');
 
 
 
-const DEFAULT_PROJECT_TYPE = 'Visual Studio Code extension (Node.js, CommonJS)';
+const DEFAULT_PROJECT_TYPE = 'Visual Studio Code';
 
-function buildExclusionArgs(excludedRelativePaths) {
-	const topLevelNames = new Set();
+function buildExclusionArgs(selectedRelativePaths) {
+	const names = new Set();
 
-	for (const relativePath of excludedRelativePaths) {
-		const topLevel = relativePath.split(path.sep)[0].split('/')[0];
-		if (topLevel) {
-			topLevelNames.add(topLevel);
+	for (const relativePath of selectedRelativePaths) {
+		const leafName = path.basename(relativePath);
+		if (leafName) {
+			names.add(leafName);
 		}
 	}
 
-	return Array.from(topLevelNames);
-}
-
-function filterDumpOutput(dumpOutput, excludedRelativePaths) {
-	if (excludedRelativePaths.length === 0) {
-		return dumpOutput;
-	}
-
-	const normalizedExcluded = new Set(
-		excludedRelativePaths.map((p) => p.split(path.sep).join('/'))
-	);
-
-	const blocks = dumpOutput.split(/(?=\n[^\n]+:\n-{20})/);
-
-	const filteredBlocks = blocks.filter((block) => {
-		const headerMatch = block.match(/\n?([^\n]+):\n-{20}/);
-		if (!headerMatch) {
-			return true;
-		}
-		const filePath = headerMatch[1].trim();
-		return !normalizedExcluded.has(filePath);
-	});
-
-	return filteredBlocks.join('');
+	return Array.from(names);
 }
 
 class PromptBuilder {
@@ -51,18 +28,17 @@ class PromptBuilder {
 		this.utreeManager = UtreeManager.getInstance();
 	}
 
-	async build(userRequestedChanges, excludedRelativePaths) {
+	async build(userRequestedChanges, selectedRelativePaths) {
 		await this.utreeManager.ensureAvailable();
 
-		const topLevelExclusions = buildExclusionArgs(excludedRelativePaths);
+		const exclusionArgs = buildExclusionArgs(selectedRelativePaths);
 
-		const treeOutput = await this.utreeManager.runTree(this.workspaceRootPath, topLevelExclusions);
-		const rawDumpOutput = await this.utreeManager.runDump(this.workspaceRootPath, topLevelExclusions);
-		const dumpOutput = filterDumpOutput(rawDumpOutput, excludedRelativePaths);
+		const treeOutput = await this.utreeManager.runTree(this.workspaceRootPath, exclusionArgs);
+		const rawDumpOutput = await this.utreeManager.runDump(this.workspaceRootPath, exclusionArgs);
 
 		const masterPrompt = buildMasterPrompt(DEFAULT_PROJECT_TYPE, userRequestedChanges);
 
-		return `${treeOutput}\n\n${dumpOutput}\n\n${masterPrompt}`;
+		return `${treeOutput}\n\n${rawDumpOutput}\n\n${masterPrompt}`;
 	}
 }
 

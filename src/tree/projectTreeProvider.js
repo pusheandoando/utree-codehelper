@@ -40,7 +40,7 @@ class ProjectTreeProvider {
 
 		return entries.map((entry) => {
 			const relativePath = path.relative(this.workspaceRootPath, entry.absolutePath);
-			const isChecked = !extensionState.isExcluded(relativePath);
+			const isChecked = extensionState.isExcluded(relativePath);
 			const collapsibleState = entry.isDirectory
 				? vscode.TreeItemCollapsibleState.Collapsed
 				: vscode.TreeItemCollapsibleState.None;
@@ -51,11 +51,34 @@ class ProjectTreeProvider {
 
 	handleCheckboxToggle(checkedItems) {
 		const extensionState = ExtensionState.getInstance();
+
 		checkedItems.forEach(([item, newState]) => {
-			const isExcluded = newState === vscode.TreeItemCheckboxState.Unchecked;
-			extensionState.setExcluded(item.relativePath, isExcluded);
+			const isSelected = newState === vscode.TreeItemCheckboxState.Checked;
+			extensionState.setExcluded(item.relativePath, isSelected);
+
+			if (item.isDirectory) {
+				if (isSelected) {
+					this.cascadeToDescendants(extensionState, item.relativePath, true);
+				} else {
+					this.cascadeToDescendants(extensionState, item.relativePath, false);
+				}
+			}
 		});
+
 		saveExclusions(this.workspaceRootPath, extensionState.getExcludedPaths());
+		this.refresh();
+	}
+
+	cascadeToDescendants(extensionState, parentRelativePath, selected) {
+		const { collectAllEntries } = require('./projectFileScanner');
+		const allEntries = collectAllEntries(this.workspaceRootPath);
+		const prefix = parentRelativePath + path.sep;
+
+		for (const entry of allEntries) {
+			if (entry.startsWith(prefix)) {
+				extensionState.setExcluded(entry, selected);
+			}
+		}
 	}
 }
 
