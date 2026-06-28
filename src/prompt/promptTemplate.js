@@ -47,9 +47,10 @@ file content
 {exact literal text to replace it with}
 @@END_COMMAND`;
 
-const INCORRECT_RESPONSE_EXAMPLE = `Sure! Here are the changes you requested:
+const INCORRECT_RESPONSE_EXAMPLE = `I will rename getValue for clarity and compress the logic into a
+ternary, then close the block with a short note about what changed.
 
-\`\`\`javascript
+\`\`\`txt
 @@COMMAND: REPLACE_FRAGMENT
 @@PATH: src/example.js
 @@START_MARKER:
@@ -60,24 +61,27 @@ function getValue() {
 function getValue() {
     // Returns the value
     const result = condition ? a : b; // ternary for brevity
+@@END_COMMAND
 \`\`\`
 
 I also renamed "getValue" to "fetchAndReturnTheCurrentValue" for clarity, and
 added comments explaining each line. Let me know if you need anything else!
 
 WHY THIS IS WRONG:
-- Text before the block ("Sure! Here are...") and after it ("I also renamed...
-  Let me know...") is forbidden. Nothing may exist outside @@COMMAND blocks.
-- Markdown fences (\`\`\`javascript) wrap the block. Fences are forbidden.
+- Text after the fenced block ("I also renamed... Let me know...") is
+  forbidden. Once the fenced block closes, the response is over.
 - The function was renamed without the original name being unclear. Renaming
   is forbidden unless the existing name is genuinely meaningless.
 - A redundant comment ("// Returns the value") was added above code that
   already says what it does. Forbidden.
 - A ternary was used to compress logic, with a comment justifying the
-  shortcut instead of just writing it clearly. Forbidden.`;
+  shortcut instead of just writing it clearly. Forbidden.
+- The note inside the fenced block ("I will rename getValue...") mixes
+  reasoning with the commands. Reasoning belongs before the fenced block,
+  never inside it.`;
 
 function buildMasterPrompt(projectType, userRequestedChanges) {
-    return `Project type: ${projectType}
+  return `Project type: ${projectType}
 
 Below is the structure and code of the relevant project files, with the exact path indicated before each block.
 
@@ -85,26 +89,32 @@ Requested changes:
 ${userRequestedChanges}
 
 
-RESPONSE FORMAT (MANDATORY, STRICTLY ENFORCED, NO EXCEPTIONS)
-Your entire response must consist ONLY of one or more blocks delimited by
-@@COMMAND ... @@END_COMMAND, placed back to back with nothing between them.
-This rule overrides any habit, default behavior, or style you would
-normally use to be polite, helpful-sounding, or conversational. Apply it
-exactly the same way regardless of how complex, ambiguous, or large the
-requested change is.
+RESPONSE FORMAT (MANDATORY)
+Reason about the request as thoroughly as you need to before answering.
+Explain your analysis, evaluate tradeoffs, state assumptions, and use
+your own judgment, in natural conversation, the same way you would for
+any other request. Do not shorten or limit this reasoning to fit the
+final format below; the format only applies to the closing block.
+Use a web search whenever the change involves a library, API, syntax,
+or behavior you are not fully certain about, instead of relying only on
+prior knowledge that may be outdated or incomplete.
 
-Absolutely forbidden anywhere in the response, before, after, or between
-blocks:
-- Greetings, acknowledgements, or closing remarks of any kind
-  (e.g. "Sure, here are the changes", "Hope this helps").
+Once your reasoning is finished, end your response with exactly one
+fenced code block using the txt language tag. That fenced block must
+contain one or more blocks delimited by @@COMMAND ... @@END_COMMAND,
+placed back to back with nothing between them, and nothing else: no
+prose, no comments, no headers, no nested fences. This is the only
+part of the response that gets extracted and applied, so it must be
+copy-pasteable and immediately parseable exactly as emitted.
+
+Forbidden inside the fenced block:
+- Greetings, acknowledgements, or closing remarks of any kind.
 - Explanations, summaries, or comments about what was changed.
-- Markdown code fences (no \`\`\` of any kind, with or without a language tag).
-- Markdown headers, bullet lists, or any prose outside the blocks.
+- Markdown headers, bullet lists, or any prose between or around blocks.
 
-The raw response must be copy-pasteable and immediately parseable exactly
-as emitted, with no manual cleanup required. The first character of the
-response must be the "@" of the first @@COMMAND, and the last characters
-must be the end of the final @@END_COMMAND. Nothing else.
+Forbidden anywhere in the response:
+- More than one fenced code block. Everything goes in a single block
+  at the end.
 
 ${COMMAND_SYNTAX_REFERENCE}
 
@@ -190,9 +200,10 @@ ${INCORRECT_RESPONSE_EXAMPLE}
 
 
 FINAL CHECK BEFORE YOU RESPOND
-Before writing your answer, verify silently that it will satisfy all of
-the following, then output only the @@COMMAND blocks:
-- Nothing exists outside @@COMMAND...@@END_COMMAND. No intro, no outro, no fences.
+Before closing your answer, verify silently that the fenced block will
+satisfy all of the following:
+- It contains nothing except @@COMMAND...@@END_COMMAND blocks, back to
+  back, with no prose, comments, or extra fences mixed in.
 - No renames, no added comments, no ternaries, no column alignment, no emojis.
 - @@START_MARKER and @@END_MARKER are copied character-for-character from
   the source shown above, including original indentation and line breaks.
@@ -201,6 +212,6 @@ the following, then output only the @@COMMAND blocks:
 }
 
 module.exports = {
-    COMMAND_SYNTAX_REFERENCE,
-    buildMasterPrompt,
+  COMMAND_SYNTAX_REFERENCE,
+  buildMasterPrompt,
 };

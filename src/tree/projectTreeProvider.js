@@ -54,30 +54,31 @@ class ProjectTreeProvider {
 
 		checkedItems.forEach(([item, newState]) => {
 			const isSelected = newState === vscode.TreeItemCheckboxState.Checked;
-			extensionState.setExcluded(item.relativePath, isSelected);
-
-			if (item.isDirectory) {
-				if (isSelected) {
-					this.cascadeToDescendants(extensionState, item.relativePath, true);
-				} else {
-					this.cascadeToDescendants(extensionState, item.relativePath, false);
-				}
-			}
+			this.applyStateToSubtree(item.relativePath, item.isDirectory, isSelected, extensionState);
 		});
 
 		saveExclusions(this.workspaceRootPath, extensionState.getExcludedPaths());
 		this.refresh();
 	}
 
-	cascadeToDescendants(extensionState, parentRelativePath, selected) {
-		const { collectAllEntries } = require('./projectFileScanner');
-		const allEntries = collectAllEntries(this.workspaceRootPath);
-		const prefix = parentRelativePath + path.sep;
+	applyStateToSubtree(relativePath, isDirectory, isSelected, extensionState) {
+		extensionState.setExcluded(relativePath, isSelected);
 
-		for (const entry of allEntries) {
-			if (entry.startsWith(prefix)) {
-				extensionState.setExcluded(entry, selected);
-			}
+		if (!isDirectory) {
+			return;
+		}
+
+		const absolutePath = path.join(this.workspaceRootPath, relativePath);
+		let entries;
+		try {
+			entries = listDirectoryEntries(absolutePath);
+		} catch {
+			return;
+		}
+
+		for (const entry of entries) {
+			const childRelativePath = path.relative(this.workspaceRootPath, entry.absolutePath);
+			this.applyStateToSubtree(childRelativePath, entry.isDirectory, isSelected, extensionState);
 		}
 	}
 }

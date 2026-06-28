@@ -9,10 +9,10 @@ const { buildMasterPrompt } = require('./promptTemplate');
 
 const DEFAULT_PROJECT_TYPE = 'Visual Studio Code';
 
-function buildExclusionArgs(selectedRelativePaths) {
+function buildExclusionArgs(excludedRelativePaths) {
 	const names = new Set();
 
-	for (const relativePath of selectedRelativePaths) {
+	for (const relativePath of excludedRelativePaths) {
 		const leafName = path.basename(relativePath);
 		if (leafName) {
 			names.add(leafName);
