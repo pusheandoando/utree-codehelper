@@ -2,7 +2,7 @@
   "name": "utree-codehelper",
   "displayName": "utree-codehelper",
   "description": "Visual Studio Code extension that safely applies AI-proposed codebase changes while keeping developers in control through step-by-step review and approval, striking the right balance between AI assistance and human oversight instead of blind vibe coding.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "engines": {
     "vscode": "^1.125.0"
   },
@@ -57,8 +57,22 @@
       {
         "command": "utree-codehelper.applyChanges",
         "title": "utree CodeHelper: Apply Changes"
+      },
+      {
+        "command": "utree-codehelper.refreshFileTree",
+        "title": "Refresh",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "utree-codehelper.refreshFileTree",
+          "when": "view == utreeCodehelperTreeSelection",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "lint": "eslint .",

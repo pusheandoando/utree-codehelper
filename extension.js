@@ -12,6 +12,7 @@ const { executeApplyChangesCommand } = require('./src/commands/applyChangesComma
 const {
 	COMMAND_NEW_CHANGE,
 	COMMAND_APPLY_CHANGES,
+	COMMAND_REFRESH_FILE_TREE,
 	VIEW_TREE_SELECTION,
 	VIEW_FILE_SEARCH,
 	VIEW_CONTROL_PANEL,
@@ -79,6 +80,9 @@ function registerMainWorkspaceFeatures(context, workspaceRootPath) {
 		vscode.window.registerWebviewViewProvider(VIEW_FILE_SEARCH, fileSearchProvider),
 		vscode.window.registerWebviewViewProvider(VIEW_CONTROL_PANEL, controlPanelProvider),
 		vscode.window.registerWebviewViewProvider(VIEW_PREVIOUS_CHANGES, previousChangesProvider),
+		vscode.commands.registerCommand(COMMAND_REFRESH_FILE_TREE, () => {
+			projectTreeProvider.refresh();
+		}),
 		vscode.commands.registerCommand(COMMAND_NEW_CHANGE, async () => {
 			const userInstructions = await vscode.window.showInputBox({
 				prompt: 'Describe the requested changes',
