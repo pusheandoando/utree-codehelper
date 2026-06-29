@@ -1,4 +1,5 @@
 // src/webview/controlPanelProvider.js
+const vscode = require('vscode');
 const { buildControlPanelHtml } = require('./controlPanelHtml');
 
 
@@ -23,7 +24,9 @@ class ControlPanelProvider {
 
 		webviewView.webview.onDidReceiveMessage((message) => {
 			if (message.type === 'submitNewChange') {
-				this.onSubmitNewChange(message.userInstructions);
+				Promise.resolve(this.onSubmitNewChange(message.userInstructions)).catch((error) => {
+					vscode.window.showErrorMessage(`Failed to generate prompt: ${error.message}`);
+				});
 			}
 		});
 	}
