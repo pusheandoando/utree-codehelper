@@ -108,6 +108,11 @@ function buildDiffReviewHtml(commands, sessionDatetime) {
 			font-size: 12px;
 			color: var(--uc-text-secondary);
 		}
+		.uc-page-header-right {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+		}
 		.uc-card {
 			border: 1px solid var(--uc-border);
 			border-radius: var(--uc-radius);
@@ -322,7 +327,10 @@ function buildDiffReviewHtml(commands, sessionDatetime) {
 <body>
 	<div class="uc-page-header">
 		<span class="uc-page-title">Review Changes${titleSuffix}</span>
-		<span class="uc-page-count">${totalCount} change${totalCount !== 1 ? 's' : ''}</span>
+		<div class="uc-page-header-right">
+			<span class="uc-page-count">${totalCount} change${totalCount !== 1 ? 's' : ''}</span>
+			${isReadOnly ? '<button class="uc-primary" id="uc-commit-prompt-button">Get git commit prompt</button>' : ''}
+		</div>
 	</div>
 
 	<div id="uc-cards">${cardsMarkup}</div>
@@ -414,6 +422,13 @@ function buildDiffReviewHtml(commands, sessionDatetime) {
 			});
 
 			updateFooterCount();
+		}
+
+		const commitPromptButton = document.getElementById('uc-commit-prompt-button');
+		if (commitPromptButton) {
+			commitPromptButton.addEventListener('click', () => {
+				vscodeApi.postMessage({ type: 'getCommitPrompt' });
+			});
 		}
 
 		window.addEventListener('message', (event) => {

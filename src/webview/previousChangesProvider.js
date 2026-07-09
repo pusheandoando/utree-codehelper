@@ -2,8 +2,11 @@
 const vscode = require('vscode');
 const { buildPreviousChangesHtml } = require('./previousChangesHtml');
 const { buildDiffReviewHtml } = require('./diffReviewHtml');
+const { buildCommitPromptHtml } = require('./commitPromptHtml');
 const { listSessions, clearSessions, formatDatetimeForDisplay } = require('../dependency/changeLogger');
 const { ChangeApplier } = require('../parser/changeApplier');
+const { findUnapplicableCommands } = require('../parser/changeValidator');
+const { buildCommitPrompt } = require('../prompt/commitPromptTemplate');
 
 
 
@@ -87,10 +90,47 @@ function openReadOnlyDiffReviewPanel(commands, datetimeLabel, workspaceRootPath)
 		if (message.type === 'applySelected') {
 			await applySelected(changeApplier, commands, message.indices, panel);
 		}
+		if (message.type === 'getCommitPrompt') {
+			openCommitPromptPanel(commands);
+		}
 	});
 }
 
+function openCommitPromptPanel(commands) {
+	const panel = vscode.window.createWebviewPanel(
+		'utreeCodehelperCommitPrompt',
+		'Git Commit Prompt',
+		vscode.ViewColumn.Active,
+		{ enableScripts: true, retainContextWhenHidden: true }
+	);
+
+	panel.webview.html = buildCommitPromptHtml(buildCommitPrompt(commands));
+}
+
+async function confirmProceedIfSomeUnapplicable(unapplicableCommands) {
+	if (unapplicableCommands.length === 0) {
+		return true;
+	}
+
+	const proceedChoice = 'Continue with recognized changes only';
+	const userChoice = await vscode.window.showWarningMessage(
+		'Not all selected changes can be applied. Continuing will apply only the changes that are valid, skipping the rest. This may leave the update incomplete.',
+		{ modal: true },
+		proceedChoice
+	);
+
+	return userChoice === proceedChoice;
+}
+
 async function applySelected(changeApplier, commands, indices, panel) {
+	const selectedCommands = indices.map((index) => commands[index]);
+	const unapplicableCommands = await findUnapplicableCommands(changeApplier, selectedCommands);
+
+	const canProceed = await confirmProceedIfSomeUnapplicable(unapplicableCommands);
+	if (!canProceed) {
+		return;
+	}
+
 	for (const index of indices) {
 		const command = commands[index];
 		if (command.parseError) {
@@ -101,6 +141,7 @@ async function applySelected(changeApplier, commands, indices, panel) {
 			panel.webview.postMessage({ type: 'stepDone', index });
 		} catch (error) {
 			panel.webview.postMessage({ type: 'stepFailed', index, error: error.message });
+			vscode.window.showErrorMessage(`Applying changes stopped because "${command.path}" failed: ${error.message}. Changes already written before this step remain on disk.`);
 			return;
 		}
 	}

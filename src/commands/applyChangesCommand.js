@@ -6,6 +6,7 @@ const { buildDiffReviewHtml } = require('../webview/diffReviewHtml');
 const { parseAiResponse } = require('../parser/commandParser');
 const { ChangeApplier } = require('../parser/changeApplier');
 const { COMMAND_TYPE } = require('../parser/commandParser');
+const { findUnapplicableCommands } = require('../parser/changeValidator');
 const { saveSession } = require('../dependency/changeLogger');
 const { getActivePromptPanel } = require('./newChangeCommand');
 
@@ -63,7 +64,7 @@ function resolveFileUri(workspaceRootPath, command) {
 	return vscode.Uri.file(path.join(workspaceRootPath, command.path));
 }
 
-function openDiffReviewPanel(parsedCommands, workspaceRootPath, onComplete) {
+function openDiffReviewPanel(parsedCommands, workspaceRootPath, onComplete, changeApplier) {
 	const panel = vscode.window.createWebviewPanel(
 		'utreeCodehelperDiffReview',
 		'Review Changes',
@@ -72,7 +73,6 @@ function openDiffReviewPanel(parsedCommands, workspaceRootPath, onComplete) {
 	);
 
 	panel.webview.html = buildDiffReviewHtml(parsedCommands);
-	const changeApplier = new ChangeApplier(workspaceRootPath);
 
 	panel.webview.onDidReceiveMessage(async (message) => {
 		if (message.type === 'applySelected') {
@@ -102,6 +102,7 @@ async function applySelected(changeApplier, parsedCommands, indices, workspaceRo
 			}
 		} catch (error) {
 			panel.webview.postMessage({ type: 'stepFailed', index, error: error.message });
+			vscode.window.showErrorMessage(`Applying changes stopped because "${command.path}" failed: ${error.message}. Changes already written before this step remain on disk.`);
 			return;
 		}
 	}
@@ -139,6 +140,21 @@ async function openAppliedFiles(fileUris) {
 	}
 }
 
+async function confirmProceedIfSomeUnapplicable(unapplicableCommands) {
+	if (unapplicableCommands.length === 0) {
+		return true;
+	}
+
+	const proceedChoice = 'Continue with recognized changes only';
+	const userChoice = await vscode.window.showWarningMessage(
+		'Not all changes in this response can be applied. Continuing will apply only the changes that were recognized and valid, skipping the rest. This may leave the update incomplete.',
+		{ modal: true },
+		proceedChoice
+	);
+
+	return userChoice === proceedChoice;
+}
+
 async function executeApplyChangesCommand(extensionUri, workspaceRootPath, onComplete) {
 	const aiResponseText = await openPasteResponsePanel(extensionUri);
 	if (!aiResponseText) {
@@ -151,7 +167,15 @@ async function executeApplyChangesCommand(extensionUri, workspaceRootPath, onCom
 		return;
 	}
 
-	openDiffReviewPanel(parsedCommands, workspaceRootPath, onComplete);
+	const changeApplier = new ChangeApplier(workspaceRootPath);
+	const unapplicableCommands = await findUnapplicableCommands(changeApplier, parsedCommands);
+
+	const canProceed = await confirmProceedIfSomeUnapplicable(unapplicableCommands);
+	if (!canProceed) {
+		return;
+	}
+
+	openDiffReviewPanel(parsedCommands, workspaceRootPath, onComplete, changeApplier);
 }
 
 module.exports = {

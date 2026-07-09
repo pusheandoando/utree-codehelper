@@ -40,6 +40,50 @@ class ChangeApplier {
         }
     }
 
+    async validate(command) {
+        switch (command.type) {
+            case COMMAND_TYPE.CREATE_SCRIPT:
+            case COMMAND_TYPE.CREATE_FOLDER:
+                return null;
+            case COMMAND_TYPE.DELETE_SCRIPT:
+            case COMMAND_TYPE.DELETE_FOLDER:
+                return this.validateTargetExists(command);
+            case COMMAND_TYPE.REPLACE_FRAGMENT:
+                return this.validateReplaceFragment(command);
+            default:
+                return `Unsupported command type: ${command.type}`;
+        }
+    }
+
+    async validateTargetExists(command) {
+        try {
+            await vscode.workspace.fs.stat(this.resolveUri(command.path));
+            return null;
+        } catch {
+            return `Could not locate ${command.path}`;
+        }
+    }
+
+    async validateReplaceFragment(command) {
+        const targetUri = this.resolveUri(command.path);
+
+        let fileBytes;
+        try {
+            fileBytes = await vscode.workspace.fs.readFile(targetUri);
+        } catch {
+            return `Could not locate ${command.path}`;
+        }
+
+        const fileText = Buffer.from(fileBytes).toString('utf8');
+        const fragmentRange = this.locateFragmentRange(fileText, command.startMarker, command.endMarker);
+
+        if (!fragmentRange) {
+            return `Could not locate the exact fragment boundaries in ${command.path}`;
+        }
+
+        return null;
+    }
+
     async applyCreateScript(command) {
         const targetUri = this.resolveUri(command.path);
         const encodedContent = new TextEncoder().encode(command.content || '');
