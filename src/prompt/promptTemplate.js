@@ -27,36 +27,40 @@ file content
 @@PATH: {folder}/{old_package}
 @@END_COMMAND
 
-5a. Replace fragment - range form (use when old and new content share no common anchor)
-@@COMMAND: REPLACE_FRAGMENT
+5. Replace lines
+Every file in the context below was dumped with utree --dump=numbered,
+meaning every single line you see is already prefixed with its exact
+line number (e.g. "42|const x = 1;"). Use those numbers directly. Do
+not count lines yourself, do not guess, do not copy any of the original
+code as a marker: only reference the line numbers exactly as shown.
+
+@@COMMAND: REPLACE_LINES
 @@PATH: {folder}/{script_name}.{extension}
-@@START_MARKER:
-{exact literal text marking the start of the region to replace}
-@@END_MARKER:
-{exact literal text marking the end of the region to replace}
+@@START_LINE: {first line number of the region being replaced, inclusive}
+@@END_LINE: {last line number of the region being replaced, inclusive}
 @@NEW_CONTENT:
-{replacement content for the entire region from START_MARKER to END_MARKER inclusive}
+{replacement content for that entire line range}
 @@END_COMMAND
 
-5b. Replace fragment - find-and-replace form (use when you are replacing one exact block with another)
-@@COMMAND: REPLACE_FRAGMENT
+To insert new lines without deleting anything, set @@START_LINE to the
+line number immediately before which the new content should be inserted,
+and set @@END_LINE to exactly -1. This is the only valid use of -1.
+@@COMMAND: REPLACE_LINES
 @@PATH: {folder}/{script_name}.{extension}
-@@START_MARKER:
-{exact literal text to find in the file}
-@@END_MARKER:
-{exact literal text to replace it with}
+@@START_LINE: {line number to insert before}
+@@END_LINE: -1
+@@NEW_CONTENT:
+{new lines to insert}
 @@END_COMMAND`;
 
 const INCORRECT_RESPONSE_EXAMPLE = `I will rename getValue for clarity and compress the logic into a
 ternary, then close the block with a short note about what changed.
 
 \`\`\`txt
-@@COMMAND: REPLACE_FRAGMENT
+@@COMMAND: REPLACE_LINES
 @@PATH: src/example.js
-@@START_MARKER:
-function getValue() {
-@@END_MARKER:
-function getValue() {
+@@START_LINE: 12
+@@END_LINE: 14
 @@NEW_CONTENT:
 function getValue() {
     // Returns the value
@@ -78,7 +82,9 @@ WHY THIS IS WRONG:
   shortcut instead of just writing it clearly. Forbidden.
 - The note inside the fenced block ("I will rename getValue...") mixes
   reasoning with the commands. Reasoning belongs before the fenced block,
-  never inside it.`;
+  never inside it.
+- @@START_LINE and @@END_LINE must come from the numbered line prefixes
+  shown in the file dump, never estimated or recalculated by hand.`;
 
 function buildMasterPrompt(projectType, userRequestedChanges) {
   return `Project type: ${projectType}
@@ -123,20 +129,28 @@ Available commands:
 - DELETE_SCRIPT (@@PATH)
 - CREATE_FOLDER (@@PATH)
 - DELETE_FOLDER (@@PATH)
-- REPLACE_FRAGMENT range form   (@@PATH, @@START_MARKER, @@END_MARKER, @@NEW_CONTENT)
-- REPLACE_FRAGMENT find-replace (@@PATH, @@START_MARKER, @@END_MARKER)
+- REPLACE_LINES (@@PATH, @@START_LINE, @@END_LINE, @@NEW_CONTENT)
 
 Formatting rules:
 - Paths must EXACTLY match the ones given in the context.
-- Each field label (@@PATH, @@CONTENT, @@START_MARKER, @@END_MARKER,
+- Each field label (@@PATH, @@CONTENT, @@START_LINE, @@END_LINE,
   @@NEW_CONTENT) must be followed immediately by a newline, with no
   trailing spaces on that line.
-- @@START_MARKER and @@END_MARKER must be literal text, copied exactly
-  as it exists in the file (preserve indentation, whitespace, and syntax
-  precisely - the change will be applied programmatically by exact text
-  match, not interpreted).
-- If a change requires multiple non-contiguous fragments, use multiple
-  REPLACE_FRAGMENT blocks, one per zone.
+- @@START_LINE and @@END_LINE must be plain integers, taken directly from
+  the "N|" line-number prefixes in the numbered file dump. Never include
+  the "|" character or any code text in these fields, only the number.
+- @@END_LINE is inclusive: a range of @@START_LINE: 10 and @@END_LINE: 10
+  replaces exactly one line. @@END_LINE: -1 means insert-only, described
+  above.
+- @@NEW_CONTENT must never include line-number prefixes; write plain code
+  only, exactly as it should appear in the final file.
+- If a change requires multiple non-contiguous line ranges, use multiple
+  REPLACE_LINES blocks, one per zone, each with its own line numbers.
+- When a file has more than one REPLACE_LINES block, order them from the
+  bottom of the file to the top of the file. This response is applied as
+  a single atomic set of edits against the line numbers you saw in the
+  original dump, so top-to-bottom ordering would shift line numbers for
+  later edits; bottom-to-top ordering keeps every number valid.
 
 
 CODE QUALITY RULES (MANDATORY, NO EXCEPTIONS)
@@ -205,11 +219,17 @@ satisfy all of the following:
 - It contains nothing except @@COMMAND...@@END_COMMAND blocks, back to
   back, with no prose, comments, or extra fences mixed in.
 - No renames, no added comments, no ternaries, no column alignment, no emojis.
-- @@START_MARKER and @@END_MARKER are copied character-for-character from
-  the source shown above, including original indentation and line breaks.
+- Every @@START_LINE and @@END_LINE value was read directly from a "N|"
+  prefix in the numbered dump above, never estimated or recalculated.
+- Multiple REPLACE_LINES blocks targeting the same file are ordered from
+  bottom to top.
 - The existing indentation style, quote style, and statement-termination
   style of each file is preserved exactly in @@NEW_CONTENT.`;
 }
+
+
+
+
 
 module.exports = {
   COMMAND_SYNTAX_REFERENCE,

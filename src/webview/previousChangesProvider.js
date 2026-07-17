@@ -1,16 +1,20 @@
 // src/webview/previousChangesProvider.js
 const vscode = require('vscode');
+
 const { buildPreviousChangesHtml } = require('./previousChangesHtml');
 const { buildDiffReviewHtml } = require('./diffReviewHtml');
 const { buildCommitPromptHtml } = require('./commitPromptHtml');
 const { listSessions, clearSessions, formatDatetimeForDisplay } = require('../dependency/changeLogger');
 const { ChangeApplier } = require('../parser/changeApplier');
-const { findUnapplicableCommands } = require('../parser/changeValidator');
+const { findUnapplicableCommands, attachOldContent } = require('../parser/changeValidator');
+const { resolveFileUri, openAppliedFiles } = require('../parser/appliedFilesOpener');
 const { buildCommitPrompt } = require('../prompt/commitPromptTemplate');
 
 
 
 
+
+const openSessionPanels = new Map();
 
 class PreviousChangesProvider {
 	constructor(extensionUri, getWorkspaceRootPath) {
@@ -30,6 +34,7 @@ class PreviousChangesProvider {
 			if (message.type === 'openSession') {
 				this.openSession(message.index);
 			}
+
 			if (message.type === 'clearLogs') {
 				this.clearLogs();
 			}
@@ -42,6 +47,7 @@ class PreviousChangesProvider {
 		if (!this.view) {
 			return;
 		}
+
 		const workspaceRootPath = this.getWorkspaceRootPath();
 		const sessions = workspaceRootPath ? listSessions(workspaceRootPath) : [];
 		this.view.webview.html = buildPreviousChangesHtml(sessions);
@@ -51,18 +57,37 @@ class PreviousChangesProvider {
 		this.render();
 	}
 
-	openSession(index) {
+	async openSession(index) {
 		const workspaceRootPath = this.getWorkspaceRootPath();
 		if (!workspaceRootPath) {
 			return;
 		}
+
 		const sessions = listSessions(workspaceRootPath);
 		const session = sessions[index];
 		if (!session) {
 			return;
 		}
+
+		const sessionKey = `${workspaceRootPath}::${session.filePath}`;
+		const existingPanel = openSessionPanels.get(sessionKey);
+		if (existingPanel) {
+			existingPanel.reveal(existingPanel.viewColumn ?? vscode.ViewColumn.Active, false);
+			return;
+		}
+
+		const changeApplier = new ChangeApplier(workspaceRootPath);
+		await attachOldContent(changeApplier, session.commands);
+
 		const datetimeLabel = formatDatetimeForDisplay(session.datetime);
-		openReadOnlyDiffReviewPanel(session.commands, datetimeLabel, workspaceRootPath);
+		const panel = openReadOnlyDiffReviewPanel(session.commands, datetimeLabel, workspaceRootPath);
+
+		openSessionPanels.set(sessionKey, panel);
+		panel.onDidDispose(() => {
+			if (openSessionPanels.get(sessionKey) === panel) {
+				openSessionPanels.delete(sessionKey);
+			}
+		});
 	}
 
 	clearLogs() {
@@ -70,7 +95,10 @@ class PreviousChangesProvider {
 		if (!workspaceRootPath) {
 			return;
 		}
+
 		clearSessions(workspaceRootPath);
+		openSessionPanels.forEach((panel) => panel.dispose());
+		openSessionPanels.clear();
 		this.render();
 	}
 }
@@ -88,12 +116,15 @@ function openReadOnlyDiffReviewPanel(commands, datetimeLabel, workspaceRootPath)
 
 	panel.webview.onDidReceiveMessage(async (message) => {
 		if (message.type === 'applySelected') {
-			await applySelected(changeApplier, commands, message.indices, panel);
+			await applySelected(changeApplier, commands, message.indices, workspaceRootPath, panel);
 		}
+
 		if (message.type === 'getCommitPrompt') {
 			openCommitPromptPanel(commands);
 		}
 	});
+
+	return panel;
 }
 
 function openCommitPromptPanel(commands) {
@@ -122,7 +153,7 @@ async function confirmProceedIfSomeUnapplicable(unapplicableCommands) {
 	return userChoice === proceedChoice;
 }
 
-async function applySelected(changeApplier, commands, indices, panel) {
+async function applySelected(changeApplier, commands, indices, workspaceRootPath, panel) {
 	const selectedCommands = indices.map((index) => commands[index]);
 	const unapplicableCommands = await findUnapplicableCommands(changeApplier, selectedCommands);
 
@@ -131,21 +162,34 @@ async function applySelected(changeApplier, commands, indices, panel) {
 		return;
 	}
 
+	const appliedFileUris = [];
+
 	for (const index of indices) {
 		const command = commands[index];
 		if (command.parseError) {
 			continue;
 		}
+
 		try {
 			await changeApplier.apply(command);
 			panel.webview.postMessage({ type: 'stepDone', index });
+			const fileUri = resolveFileUri(workspaceRootPath, command);
+			if (fileUri) {
+				appliedFileUris.push(fileUri);
+			}
 		} catch (error) {
 			panel.webview.postMessage({ type: 'stepFailed', index, error: error.message });
 			vscode.window.showErrorMessage(`Applying changes stopped because "${command.path}" failed: ${error.message}. Changes already written before this step remain on disk.`);
+			await openAppliedFiles(appliedFileUris);
 			return;
 		}
 	}
 	panel.webview.postMessage({ type: 'applyComplete' });
+	await openAppliedFiles(appliedFileUris);
 }
+
+
+
+
 
 module.exports = PreviousChangesProvider;

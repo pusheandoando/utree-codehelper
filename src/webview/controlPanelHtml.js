@@ -65,6 +65,10 @@ function buildControlPanelHtml(webview) {
 </html>`;
 }
 
+
+
+
+
 module.exports = {
 	buildControlPanelHtml,
 };

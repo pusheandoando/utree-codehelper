@@ -1,5 +1,6 @@
 // src/prompt/promptBuilder.js
 const path = require('path');
+
 const UtreeManager = require('../dependency/utreeManager');
 const { buildMasterPrompt } = require('./promptTemplate');
 
@@ -9,15 +10,21 @@ const { buildMasterPrompt } = require('./promptTemplate');
 
 const DEFAULT_PROJECT_TYPE = 'Visual Studio Code';
 
+
+
+
+
 function isCoveredByAncestor(normalizedPath, normalizedExcludedSet) {
 	const segments = normalizedPath.split('/');
 
 	for (let i = 1; i < segments.length; i++) {
 		const ancestor = segments.slice(0, i).join('/');
+		
 		if (normalizedExcludedSet.has(ancestor)) {
 			return true;
 		}
 	}
+
 	return false;
 }
 
@@ -61,5 +68,9 @@ class PromptBuilder {
 		return `${treeOutput}\n\n${dumpOutput}\n\n${masterPrompt}`;
 	}
 }
+
+
+
+
 
 module.exports = PromptBuilder;

@@ -14,6 +14,7 @@ function listDirectoryEntries(absoluteDirectoryPath) {
 			if (a.isDirectory() !== b.isDirectory()) {
 				return a.isDirectory() ? -1 : 1;
 			}
+
 			return a.name.localeCompare(b.name);
 		})
 		.map((entry) => ({
@@ -23,11 +24,13 @@ function listDirectoryEntries(absoluteDirectoryPath) {
 		}));
 }
 
+
 function collectAllEntries(rootPath) {
 	const results = [];
 
 	function walk(absoluteDir) {
 		let entries;
+
 		try {
 			entries = fs.readdirSync(absoluteDir, { withFileTypes: true });
 		} catch {
@@ -37,7 +40,9 @@ function collectAllEntries(rootPath) {
 		for (const entry of entries) {
 			const absolutePath = path.join(absoluteDir, entry.name);
 			const relativePath = path.relative(rootPath, absolutePath);
+			
 			results.push(relativePath);
+			
 			if (entry.isDirectory()) {
 				walk(absolutePath);
 			}
@@ -45,8 +50,13 @@ function collectAllEntries(rootPath) {
 	}
 
 	walk(rootPath);
+	
 	return results;
 }
+
+
+
+
 
 module.exports = {
 	listDirectoryEntries,

@@ -1,12 +1,12 @@
 // src/commands/applyChangesCommand.js
 const vscode = require('vscode');
-const path = require('path');
+
 const { buildPasteResponseHtml } = require('../webview/pasteResponseHtml');
 const { buildDiffReviewHtml } = require('../webview/diffReviewHtml');
 const { parseAiResponse } = require('../parser/commandParser');
 const { ChangeApplier } = require('../parser/changeApplier');
-const { COMMAND_TYPE } = require('../parser/commandParser');
-const { findUnapplicableCommands } = require('../parser/changeValidator');
+const { findUnapplicableCommands, attachOldContent } = require('../parser/changeValidator');
+const { resolveFileUri, openAppliedFiles } = require('../parser/appliedFilesOpener');
 const { saveSession } = require('../dependency/changeLogger');
 const { getActivePromptPanel } = require('./newChangeCommand');
 
@@ -17,10 +17,12 @@ const { getActivePromptPanel } = require('./newChangeCommand');
 function openPasteResponsePanel(extensionUri) {
 	return new Promise((resolve) => {
 		let hasResolved = false;
+
 		const resolveOnce = (value) => {
 			if (hasResolved) {
 				return;
 			}
+
 			hasResolved = true;
 			resolve(value);
 		};
@@ -40,6 +42,7 @@ function openPasteResponsePanel(extensionUri) {
 				resolveOnce(message.responseText);
 				panel.dispose();
 			}
+
 			if (message.type === 'cancelResponse') {
 				resolveOnce(null);
 				panel.dispose();
@@ -50,19 +53,6 @@ function openPasteResponsePanel(extensionUri) {
 	});
 }
 
-function resolveFileUri(workspaceRootPath, command) {
-	const fileCommands = new Set([
-		COMMAND_TYPE.CREATE_SCRIPT,
-		COMMAND_TYPE.DELETE_SCRIPT,
-		COMMAND_TYPE.REPLACE_FRAGMENT,
-	]);
-
-	if (!fileCommands.has(command.type) || !command.path) {
-		return null;
-	}
-
-	return vscode.Uri.file(path.join(workspaceRootPath, command.path));
-}
 
 function openDiffReviewPanel(parsedCommands, workspaceRootPath, onComplete, changeApplier) {
 	const panel = vscode.window.createWebviewPanel(
@@ -78,13 +68,34 @@ function openDiffReviewPanel(parsedCommands, workspaceRootPath, onComplete, chan
 		if (message.type === 'applySelected') {
 			await applySelected(changeApplier, parsedCommands, message.indices, workspaceRootPath, panel, onComplete);
 		}
+
+		if (message.type === 'getCommitPrompt') {
+			openCommitPromptPanel(parsedCommands);
+		}
 	});
 
 	return panel;
 }
 
+
+function openCommitPromptPanel(commands) {
+	const { buildCommitPromptHtml } = require('../webview/commitPromptHtml');
+	const { buildCommitPrompt } = require('../prompt/commitPromptTemplate');
+
+	const panel = vscode.window.createWebviewPanel(
+		'utreeCodehelperCommitPrompt',
+		'Git Commit Prompt',
+		vscode.ViewColumn.Active,
+		{ enableScripts: true, retainContextWhenHidden: true }
+	);
+
+	panel.webview.html = buildCommitPromptHtml(buildCommitPrompt(commands));
+}
+
+
 async function applySelected(changeApplier, parsedCommands, indices, workspaceRootPath, panel, onComplete) {
 	const appliedFileUris = [];
+	const appliedCommandIndices = [];
 
 	for (const index of indices) {
 		const command = parsedCommands[index];
@@ -96,6 +107,8 @@ async function applySelected(changeApplier, parsedCommands, indices, workspaceRo
 		try {
 			await changeApplier.apply(command);
 			panel.webview.postMessage({ type: 'stepDone', index });
+			appliedCommandIndices.push(index);
+
 			const fileUri = resolveFileUri(workspaceRootPath, command);
 			if (fileUri) {
 				appliedFileUris.push(fileUri);
@@ -103,6 +116,8 @@ async function applySelected(changeApplier, parsedCommands, indices, workspaceRo
 		} catch (error) {
 			panel.webview.postMessage({ type: 'stepFailed', index, error: error.message });
 			vscode.window.showErrorMessage(`Applying changes stopped because "${command.path}" failed: ${error.message}. Changes already written before this step remain on disk.`);
+			await openAppliedFiles(appliedFileUris);
+
 			return;
 		}
 	}
@@ -123,20 +138,6 @@ function closeActivePromptPanel() {
 	const promptPanel = getActivePromptPanel();
 	if (promptPanel) {
 		promptPanel.dispose();
-	}
-}
-
-async function openAppliedFiles(fileUris) {
-	for (const fileUri of fileUris) {
-		try {
-			const document = await vscode.workspace.openTextDocument(fileUri);
-			await vscode.window.showTextDocument(document, {
-				preview: false,
-				preserveFocus: false,
-			});
-		} catch {
-			// file may have been deleted
-		}
 	}
 }
 
@@ -175,8 +176,14 @@ async function executeApplyChangesCommand(extensionUri, workspaceRootPath, onCom
 		return;
 	}
 
+	await attachOldContent(changeApplier, parsedCommands);
+
 	openDiffReviewPanel(parsedCommands, workspaceRootPath, onComplete, changeApplier);
 }
+
+
+
+
 
 module.exports = {
 	executeApplyChangesCommand,

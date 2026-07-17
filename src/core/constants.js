@@ -30,6 +30,10 @@ const WEBVIEW_MESSAGE_TYPE = {
 	OPEN_APPLY_MODAL: 'openApplyModal',
 };
 
+
+
+
+
 module.exports = {
 	STORAGE_FOLDER_NAME,
 	BINARY_SUBFOLDER_NAME,

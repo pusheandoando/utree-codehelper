@@ -1,4 +1,5 @@
 // src/parser/changeValidator.js
+const { COMMAND_TYPE } = require('./commandParser');
 
 
 
@@ -22,6 +23,29 @@ async function findUnapplicableCommands(changeApplier, commands) {
 	return unapplicableCommands;
 }
 
+async function attachOldContent(changeApplier, commands) {
+	for (const command of commands) {
+		if (command.parseError || command.type !== COMMAND_TYPE.REPLACE_LINES) {
+			continue;
+		}
+
+		if (command.oldContent !== undefined) {
+			continue;
+		}
+
+		try {
+			command.oldContent = await changeApplier.readOldContent(command);
+		} catch {
+			command.oldContent = null;
+		}
+	}
+}
+
+
+
+
+
 module.exports = {
 	findUnapplicableCommands,
+	attachOldContent,
 };

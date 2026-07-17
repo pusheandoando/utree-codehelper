@@ -1,5 +1,6 @@
 // src/commands/newChangeCommand.js
 const vscode = require('vscode');
+
 const PromptBuilder = require('../prompt/promptBuilder');
 const ExtensionState = require('../core/extensionState');
 const { buildPromptReviewHtml } = require('../webview/promptReviewHtml');
@@ -24,6 +25,7 @@ function openPromptReviewPanel(extensionUri, generatedPrompt, onReload, onApply)
 			const reloadedPrompt = await onReload();
 			panel.webview.postMessage({ type: 'setPromptText', promptText: reloadedPrompt });
 		}
+
 		if (message.type === 'openApplyChanges') {
 			await onApply();
 		}
@@ -42,8 +44,10 @@ async function generatePrompt(workspaceRootPath, userInstructions) {
 	);
 
 	extensionState.setLastGeneratedPrompt(generatedPrompt);
+	
 	return generatedPrompt;
 }
+
 
 let activePromptPanel = null;
 
@@ -54,6 +58,7 @@ function getActivePromptPanel() {
 function clearActivePromptPanel() {
 	activePromptPanel = null;
 }
+
 
 async function executeNewChangeCommand(extensionUri, workspaceRootPath, userInstructions, onApplyChanges) {
 	if (!userInstructions || userInstructions.trim().length === 0) {
@@ -72,6 +77,10 @@ async function executeNewChangeCommand(extensionUri, workspaceRootPath, userInst
 
 	activePromptPanel.onDidDispose(clearActivePromptPanel);
 }
+
+
+
+
 
 module.exports = {
 	executeNewChangeCommand,

@@ -13,6 +13,7 @@ function escapeHtml(rawText) {
 		.replace(/_/g, '&#95;');
 }
 
+
 function describeCommand(command) {
 	switch (command.type) {
 		case 'CREATE_SCRIPT':
@@ -23,12 +24,20 @@ function describeCommand(command) {
 			return { label: 'Create folder', path: command.path, oldText: '', newText: '(folder will be created)' };
 		case 'DELETE_FOLDER':
 			return { label: 'Delete folder', path: command.path, oldText: '(folder will be removed)', newText: '' };
-		case 'REPLACE_FRAGMENT':
-			return { label: 'Replace fragment', path: command.path, oldText: command.startMarker, newText: command.newContent || '' };
+		case 'REPLACE_LINES': {
+			const hasOldContent = command.oldContent !== null && command.oldContent !== undefined;
+			return {
+				label: 'Replace lines ' + command.startLine + '-' + (command.endLine === -1 ? 'insert' : command.endLine),
+				path: command.path,
+				oldText: hasOldContent ? command.oldContent : '(see line range in file)',
+				newText: command.newContent || '',
+			};
+		}
 		default:
 			return { label: command.type, path: command.path, oldText: '', newText: '' };
 	}
 }
+
 
 function buildDiffReviewHtml(commands, sessionDatetime) {
 	const titleSuffix = sessionDatetime ? ` (${sessionDatetime})` : '';
@@ -95,23 +104,31 @@ function buildDiffReviewHtml(commands, sessionDatetime) {
 		}
 		.uc-page-header {
 			display: flex;
+			flex-direction: column;
+			gap: 4px;
+			margin-bottom: 20px;
+		}
+		.uc-page-header-top {
+			display: flex;
 			justify-content: space-between;
 			align-items: center;
-			margin-bottom: 20px;
+			gap: 12px;
 		}
 		.uc-page-title {
 			font-size: 13px;
 			font-weight: 600;
-			color: var(--uc-text-primary);
 		}
 		.uc-page-count {
 			font-size: 12px;
 			color: var(--uc-text-secondary);
 		}
-		.uc-page-header-right {
+		.uc-commit-prompt-button {
 			display: flex;
 			align-items: center;
-			gap: 12px;
+			gap: 6px;
+			font-family: var(--vscode-editor-font-family, monospace);
+			font-size: 11px;
+			flex-shrink: 0;
 		}
 		.uc-card {
 			border: 1px solid var(--uc-border);
@@ -326,11 +343,11 @@ function buildDiffReviewHtml(commands, sessionDatetime) {
 </head>
 <body>
 	<div class="uc-page-header">
-		<span class="uc-page-title">Review Changes${titleSuffix}</span>
-		<div class="uc-page-header-right">
-			<span class="uc-page-count">${totalCount} change${totalCount !== 1 ? 's' : ''}</span>
-			${isReadOnly ? '<button class="uc-primary" id="uc-commit-prompt-button">Get git commit prompt</button>' : ''}
+		<div class="uc-page-header-top">
+			<span class="uc-page-title">Review Changes${titleSuffix}</span>
+			<button class="uc-primary uc-commit-prompt-button" id="uc-commit-prompt-button">git commit -m (prompt)</button>
 		</div>
+		<span class="uc-page-count">${totalCount} change${totalCount !== 1 ? 's' : ''}</span>
 	</div>
 
 	<div id="uc-cards">${cardsMarkup}</div>
@@ -455,6 +472,10 @@ function buildDiffReviewHtml(commands, sessionDatetime) {
 </body>
 </html>`;
 }
+
+
+
+
 
 module.exports = {
 	buildDiffReviewHtml,

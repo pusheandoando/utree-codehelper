@@ -1,9 +1,10 @@
 // src/dependency/utreeManager.js
+const os = require('os');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const https = require('https');
 const { spawn } = require('child_process');
+
 const {
 	STORAGE_FOLDER_NAME,
 	BINARY_SUBFOLDER_NAME,
@@ -28,6 +29,7 @@ class UtreeManager {
 		if (!instance) {
 			instance = new UtreeManager();
 		}
+
 		return instance;
 	}
 
@@ -39,8 +41,10 @@ class UtreeManager {
 		if (this.isBinaryPresent()) {
 			return this.binaryPath;
 		}
+
 		await this.downloadLatestBinary();
 		await this.makeExecutable();
+		
 		return this.binaryPath;
 	}
 
@@ -50,6 +54,7 @@ class UtreeManager {
 
 	async downloadLatestBinary(onProgress) {
 		fs.mkdirSync(this.binaryFolder, { recursive: true });
+		
 		const assetUrl = await this.resolveBinaryAssetUrl();
 		await this.downloadFile(assetUrl, this.binaryPath, onProgress);
 	}
@@ -72,10 +77,12 @@ class UtreeManager {
 					try {
 						const releaseData = JSON.parse(rawBody);
 						const binaryAsset = releaseData.assets.find((asset) => asset.name === BINARY_FILE_NAME);
+						
 						if (!binaryAsset) {
 							reject(new Error('Could not find the utree binary asset in the latest release'));
 							return;
 						}
+
 						resolve(binaryAsset.browser_download_url);
 					} catch (parseError) {
 						reject(parseError);
@@ -96,6 +103,7 @@ class UtreeManager {
 					this.downloadFile(response.headers.location, destinationPath, onProgress).then(resolve, reject);
 					return;
 				}
+
 				if (response.statusCode !== 200) {
 					reject(new Error(`Failed to download binary, status ${response.statusCode}`));
 					return;
@@ -108,6 +116,7 @@ class UtreeManager {
 
 				response.on('data', (chunk) => {
 					receivedBytes += chunk.length;
+					
 					if (onProgress && totalBytes > 0) {
 						const percent = Math.round((receivedBytes / totalBytes) * 100);
 						onProgress(percent);
@@ -128,6 +137,7 @@ class UtreeManager {
 					reject(error);
 					return;
 				}
+
 				resolve();
 			});
 		});
@@ -145,10 +155,12 @@ class UtreeManager {
 
 			child.on('close', (code) => {
 				const output = Buffer.concat(chunks).toString('utf8');
+				
 				if (code !== 0) {
 					reject(new Error(output || `utree exited with code ${code}`));
 					return;
 				}
+
 				resolve(output);
 			});
 		});
@@ -166,17 +178,19 @@ class UtreeManager {
 
 			child.on('close', (code) => {
 				const output = Buffer.concat(chunks).toString('utf8');
+				
 				if (code !== 0) {
 					reject(new Error(output || `utree exited with code ${code}`));
 					return;
 				}
+
 				resolve(output);
 			});
 		});
 	}
 
 	runDump(projectRootPath, excludedNames) {
-		const args = ['.', '--dump'];
+		const args = ['.', '--dump=numbered'];
 
 		if (excludedNames && excludedNames.length > 0) {
 			args.push('-e', excludedNames.join(','));
@@ -195,5 +209,9 @@ class UtreeManager {
 		return this.spawnAndCollectInDir(args, projectRootPath);
 	}
 }
+
+
+
+
 
 module.exports = UtreeManager;

@@ -18,6 +18,7 @@ class ExtensionState {
 		if (!instance) {
 			instance = new ExtensionState(context);
 		}
+
 		return instance;
 	}
 
@@ -25,20 +26,25 @@ class ExtensionState {
 		if (!instance) {
 			throw new Error('ExtensionState must be initialized before use');
 		}
+
 		return instance;
 	}
 
 	isExcluded(relativePath) {
 		const normalized = relativePath.replace(/\\/g, '/');
+		
 		for (const excluded of this.excludedPaths) {
 			const normalizedExcluded = excluded.replace(/\\/g, '/');
+			
 			if (normalized === normalizedExcluded) {
 				return true;
 			}
+
 			if (normalized.startsWith(normalizedExcluded + '/')) {
 				return true;
 			}
 		}
+
 		return false;
 	}
 
@@ -46,6 +52,7 @@ class ExtensionState {
 		if (!relativePath) {
 			return;
 		}
+
 		if (excluded) {
 			this.excludedPaths.add(relativePath);
 		} else {
@@ -74,5 +81,9 @@ class ExtensionState {
 		return this.lastChangeTimestamp;
 	}
 }
+
+
+
+
 
 module.exports = ExtensionState;

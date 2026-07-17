@@ -1,6 +1,6 @@
 // src/tree/projectTreeProvider.js
-const vscode = require('vscode');
 const path = require('path');
+const vscode = require('vscode');
 
 const ProjectTreeItem = require('./projectTreeItem');
 const { listDirectoryEntries } = require('./projectFileScanner');
@@ -69,6 +69,7 @@ class ProjectTreeProvider {
 		}
 
 		const absolutePath = path.join(this.workspaceRootPath, relativePath);
+		
 		let entries;
 		try {
 			entries = listDirectoryEntries(absolutePath);
@@ -82,5 +83,9 @@ class ProjectTreeProvider {
 		}
 	}
 }
+
+
+
+
 
 module.exports = ProjectTreeProvider;

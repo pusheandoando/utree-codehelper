@@ -13,6 +13,7 @@ function escapeHtml(rawText) {
 		.replace(/"/g, '&quot;');
 }
 
+
 function buildPreviousChangesHtml(sessions) {
 	const hasEntries = sessions.length > 0;
 
@@ -201,6 +202,10 @@ function buildPreviousChangesHtml(sessions) {
 </body>
 </html>`;
 }
+
+
+
+
 
 module.exports = {
 	buildPreviousChangesHtml,

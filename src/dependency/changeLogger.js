@@ -1,7 +1,8 @@
 // src/dependency/changeLogger.js
+const os = require('os');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
+
 const { STORAGE_FOLDER_NAME } = require('../core/constants');
 
 
@@ -10,17 +11,25 @@ const { STORAGE_FOLDER_NAME } = require('../core/constants');
 
 const LOGS_SUBFOLDER = 'logs';
 
+
+
+
+
 function sanitizeProjectName(workspaceRootPath) {
 	return path.basename(workspaceRootPath).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
 }
 
+
 function logsFolder(workspaceRootPath) {
 	const projectName = sanitizeProjectName(workspaceRootPath);
+
 	return path.join(os.homedir(), STORAGE_FOLDER_NAME, LOGS_SUBFOLDER, projectName);
 }
 
+
 function formatDatetimeForFilename(date) {
 	const pad = (n) => String(n).padStart(2, '0');
+	
 	return (
 		date.getFullYear() +
 		pad(date.getMonth() + 1) +
@@ -32,9 +41,11 @@ function formatDatetimeForFilename(date) {
 	);
 }
 
+
 function formatDatetimeForDisplay(date) {
 	return date.toLocaleString();
 }
+
 
 function saveSession(workspaceRootPath, commands) {
 	const folder = logsFolder(workspaceRootPath);
@@ -50,8 +61,10 @@ function saveSession(workspaceRootPath, commands) {
 	};
 
 	fs.writeFileSync(filePath, JSON.stringify(entry, null, 2), 'utf8');
+	
 	return filePath;
 }
+
 
 function listSessions(workspaceRootPath) {
 	const folder = logsFolder(workspaceRootPath);
@@ -67,9 +80,11 @@ function listSessions(workspaceRootPath) {
 
 	return files.map((filename) => {
 		const filePath = path.join(folder, filename);
+		
 		try {
 			const raw = fs.readFileSync(filePath, 'utf8');
 			const entry = JSON.parse(raw);
+			
 			return {
 				filename,
 				filePath,
@@ -82,6 +97,7 @@ function listSessions(workspaceRootPath) {
 	}).filter(Boolean);
 }
 
+
 function clearSessions(workspaceRootPath) {
 	const folder = logsFolder(workspaceRootPath);
 
@@ -89,13 +105,16 @@ function clearSessions(workspaceRootPath) {
 		return;
 	}
 
-	const files = fs.readdirSync(folder)
-		.filter((f) => f.startsWith('RC_') && f.endsWith('.json'));
+	const files = fs.readdirSync(folder).filter((f) => f.startsWith('RC_') && f.endsWith('.json'));
 
 	for (const file of files) {
 		fs.unlinkSync(path.join(folder, file));
 	}
 }
+
+
+
+
 
 module.exports = {
 	saveSession,

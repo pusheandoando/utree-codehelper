@@ -1,5 +1,6 @@
 // src/webview/fileSearchProvider.js
 const vscode = require('vscode');
+
 const { buildFileSearchHtml } = require('./fileSearchHtml');
 const { collectAllEntries } = require('../tree/projectFileScanner');
 const ExtensionState = require('../core/extensionState');
@@ -29,6 +30,7 @@ class FileSearchProvider {
 			if (message.type === 'requestFileEntries') {
 				this.sendFileEntries();
 			}
+			
 			if (message.type === 'toggleFileExclusion') {
 				const extensionState = ExtensionState.getInstance();
 				extensionState.setExcluded(message.relativePath, !message.currentlyExcluded);
@@ -37,10 +39,12 @@ class FileSearchProvider {
 					this.onExclusionChanged();
 				}
 			}
+
 			if (message.type === 'toggleFileSelection') {
 				const extensionState = ExtensionState.getInstance();
 				extensionState.setExcluded(message.relativePath, !message.currentlySelected);
 				this.sendFileEntries();
+				
 				if (this.onExclusionChanged) {
 					this.onExclusionChanged();
 				}
@@ -52,6 +56,7 @@ class FileSearchProvider {
 		if (!this.view) {
 			return;
 		}
+
 		const extensionState = ExtensionState.getInstance();
 		const entries = collectAllEntries(this.workspaceRootPath);
 		const payload = entries.map((relativePath) => ({
@@ -65,5 +70,9 @@ class FileSearchProvider {
 		this.sendFileEntries();
 	}
 }
+
+
+
+
 
 module.exports = FileSearchProvider;

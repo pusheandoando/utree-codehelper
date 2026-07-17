@@ -1,5 +1,6 @@
 // extension.js
 const vscode = require('vscode');
+
 const ExtensionState = require('./src/core/extensionState');
 const ProjectTreeProvider = require('./src/tree/projectTreeProvider');
 const ControlPanelProvider = require('./src/webview/controlPanelProvider');
@@ -28,8 +29,10 @@ function getWorkspaceRootPath() {
 	if (!workspaceFolders || workspaceFolders.length === 0) {
 		return null;
 	}
+
 	return workspaceFolders[0].uri.fsPath;
 }
+
 
 function registerMainWorkspaceFeatures(context, workspaceRootPath) {
 	const extensionUri = context.extensionUri;
@@ -72,6 +75,7 @@ function registerMainWorkspaceFeatures(context, workspaceRootPath) {
 			userInstructions,
 			() => executeApplyChangesCommand(extensionUri, workspaceRootPath, onApplyComplete)
 		);
+
 		controlPanelProvider.refresh();
 	});
 
@@ -88,6 +92,7 @@ function registerMainWorkspaceFeatures(context, workspaceRootPath) {
 				prompt: 'Describe the requested changes',
 				placeHolder: 'e.g. Add a settings page with a dark mode toggle',
 			});
+
 			if (userInstructions) {
 				await executeNewChangeCommand(
 					extensionUri,
@@ -98,9 +103,11 @@ function registerMainWorkspaceFeatures(context, workspaceRootPath) {
 				controlPanelProvider.refresh();
 			}
 		}),
+
 		vscode.commands.registerCommand(COMMAND_APPLY_CHANGES, () => executeApplyChangesCommand(extensionUri, workspaceRootPath, onApplyComplete))
 	);
 }
+
 
 async function activate(context) {
 	ExtensionState.initialize(context);
@@ -144,6 +151,10 @@ async function activate(context) {
 }
 
 function deactivate() { }
+
+
+
+
 
 module.exports = {
 	activate,

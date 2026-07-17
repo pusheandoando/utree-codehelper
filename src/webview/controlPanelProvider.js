@@ -1,5 +1,6 @@
 // src/webview/controlPanelProvider.js
 const vscode = require('vscode');
+
 const { buildControlPanelHtml } = require('./controlPanelHtml');
 
 
@@ -35,6 +36,7 @@ class ControlPanelProvider {
 		if (!this.view) {
 			return;
 		}
+
 		this.view.webview.html = buildControlPanelHtml(this.view.webview);
 	}
 
@@ -42,5 +44,9 @@ class ControlPanelProvider {
 		this.render();
 	}
 }
+
+
+
+
 
 module.exports = ControlPanelProvider;

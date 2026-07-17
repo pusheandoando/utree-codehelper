@@ -30,8 +30,11 @@ function describeCommandForCommit(command) {
 			return `Created folder ${command.path}`;
 		case COMMAND_TYPE.DELETE_FOLDER:
 			return `Deleted folder ${command.path}`;
-		case COMMAND_TYPE.REPLACE_FRAGMENT:
-			return `Modified ${command.path}, replacing:\n${command.startMarker}\nwith:\n${command.newContent || ''}`;
+		case COMMAND_TYPE.REPLACE_LINES: {
+			const hasOldContent = command.oldContent !== null && command.oldContent !== undefined;
+			const oldSection = hasOldContent ? `Old code:\n${command.oldContent}` : 'Old code: (not available)';
+			return `Modified ${command.path}, replacing lines ${command.startLine}-${command.endLine}:\n${oldSection}\n\nNew code:\n${command.newContent || ''}`;
+		}
 		default:
 			return `${command.type} on ${command.path}`;
 	}
@@ -71,6 +74,10 @@ effect.
 Example of the expected output format:
 ${COMMIT_FORMAT_EXAMPLE}`;
 }
+
+
+
+
 
 module.exports = {
 	buildCommitPrompt,
